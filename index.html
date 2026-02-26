@@ -1,0 +1,629 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Faceless Factory — Video Pipeline</title>
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; background: #0a0a0f; color: #e0e0e0; min-height: 100vh; }
+    
+    /* Header */
+    .header { background: linear-gradient(135deg, #1a1a2e 0%, #16213e 100%); padding: 20px 32px; border-bottom: 1px solid #2a2a4a; display: flex; justify-content: space-between; align-items: center; }
+    .header h1 { font-size: 24px; color: #fff; }
+    .header h1 span { color: #f72585; }
+    .header .stats { display: flex; gap: 24px; }
+    .stat-box { text-align: center; }
+    .stat-box .num { font-size: 28px; font-weight: 700; color: #4cc9f0; }
+    .stat-box .label { font-size: 11px; text-transform: uppercase; color: #888; letter-spacing: 1px; }
+
+    /* Nav */
+    .nav { display: flex; gap: 0; background: #111; border-bottom: 1px solid #222; }
+    .nav button { padding: 14px 28px; background: none; border: none; color: #888; font-size: 14px; cursor: pointer; border-bottom: 2px solid transparent; transition: all 0.2s; }
+    .nav button:hover { color: #ccc; background: #1a1a2e; }
+    .nav button.active { color: #4cc9f0; border-bottom-color: #4cc9f0; }
+
+    /* Main */
+    .main { padding: 24px 32px; max-width: 1400px; margin: 0 auto; }
+    
+    /* Tab content */
+    .tab-content { display: none; }
+    .tab-content.active { display: block; }
+
+    /* Topics Grid */
+    .controls { display: flex; gap: 12px; margin-bottom: 20px; flex-wrap: wrap; align-items: center; }
+    .controls input { padding: 10px 16px; background: #1a1a2e; border: 1px solid #333; border-radius: 8px; color: #fff; font-size: 14px; width: 300px; }
+    .controls select { padding: 10px 16px; background: #1a1a2e; border: 1px solid #333; border-radius: 8px; color: #fff; font-size: 14px; }
+    .controls .btn { padding: 10px 20px; border: none; border-radius: 8px; font-size: 14px; font-weight: 600; cursor: pointer; transition: all 0.2s; }
+    .btn-primary { background: #4cc9f0; color: #000; }
+    .btn-primary:hover { background: #3ab8df; }
+    .btn-danger { background: #f72585; color: #fff; }
+    .btn-danger:hover { background: #d91e72; }
+    .btn-success { background: #06d6a0; color: #000; }
+    .btn-success:hover { background: #05b88a; }
+    .btn-secondary { background: #333; color: #ccc; }
+    .btn-secondary:hover { background: #444; }
+    .selected-count { color: #4cc9f0; font-weight: 600; font-size: 14px; }
+
+    /* Table */
+    table { width: 100%; border-collapse: collapse; }
+    th { text-align: left; padding: 12px 16px; background: #1a1a2e; color: #888; font-size: 11px; text-transform: uppercase; letter-spacing: 1px; border-bottom: 1px solid #2a2a4a; position: sticky; top: 0; }
+    td { padding: 12px 16px; border-bottom: 1px solid #1a1a2e; font-size: 14px; }
+    tr:hover { background: #12121f; }
+    tr.selected { background: #1a1a3e; }
+    
+    .check-col { width: 40px; }
+    input[type="checkbox"] { width: 16px; height: 16px; accent-color: #4cc9f0; cursor: pointer; }
+
+    /* Status badges */
+    .badge { padding: 4px 10px; border-radius: 12px; font-size: 11px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.5px; }
+    .badge-idea { background: #2a2a4a; color: #888; }
+    .badge-scripted { background: #1a3a5c; color: #4cc9f0; }
+    .badge-images { background: #1a3a2e; color: #06d6a0; }
+    .badge-produced { background: #3a1a4a; color: #b388ff; }
+    .badge-published { background: #2a1a1a; color: #f72585; }
+
+    /* Category badges */
+    .cat-military { color: #ff6b6b; }
+    .cat-tech { color: #4cc9f0; }
+    .cat-theatre { color: #ffd93d; }
+    .cat-niche { color: #06d6a0; }
+
+    /* Viral score bar */
+    .viral-bar { width: 60px; height: 6px; background: #222; border-radius: 3px; overflow: hidden; display: inline-block; vertical-align: middle; margin-right: 6px; }
+    .viral-fill { height: 100%; border-radius: 3px; }
+
+    /* Script Generator */
+    .generator { background: #111; border: 1px solid #222; border-radius: 12px; padding: 24px; margin-bottom: 20px; }
+    .generator h3 { margin-bottom: 16px; color: #fff; }
+    .gen-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
+    .gen-field label { display: block; font-size: 12px; color: #888; margin-bottom: 6px; text-transform: uppercase; letter-spacing: 0.5px; }
+    .gen-field textarea { width: 100%; padding: 12px; background: #1a1a2e; border: 1px solid #333; border-radius: 8px; color: #fff; font-size: 14px; resize: vertical; min-height: 120px; font-family: inherit; }
+    .gen-field input, .gen-field select { width: 100%; padding: 10px 12px; background: #1a1a2e; border: 1px solid #333; border-radius: 8px; color: #fff; font-size: 14px; }
+
+    /* Script output */
+    .script-output { background: #0d0d1a; border: 1px solid #2a2a4a; border-radius: 8px; padding: 20px; margin-top: 16px; white-space: pre-wrap; font-family: 'SF Mono', monospace; font-size: 13px; line-height: 1.8; max-height: 500px; overflow-y: auto; display: none; }
+
+    /* Batch panel */
+    .batch-cards { display: grid; grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); gap: 16px; }
+    .batch-card { background: #111; border: 1px solid #222; border-radius: 12px; padding: 20px; }
+    .batch-card h4 { color: #fff; margin-bottom: 8px; }
+    .batch-card .progress { width: 100%; height: 8px; background: #222; border-radius: 4px; margin: 12px 0; overflow: hidden; }
+    .batch-card .progress-fill { height: 100%; background: linear-gradient(90deg, #4cc9f0, #06d6a0); border-radius: 4px; transition: width 0.3s; }
+    .batch-card .meta { font-size: 12px; color: #888; }
+
+    /* Queue */
+    .queue-item { display: flex; align-items: center; gap: 16px; padding: 16px; background: #111; border: 1px solid #222; border-radius: 8px; margin-bottom: 8px; }
+    .queue-item .step { width: 32px; height: 32px; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 14px; font-weight: 700; }
+    .step-done { background: #06d6a0; color: #000; }
+    .step-active { background: #4cc9f0; color: #000; animation: pulse 1.5s infinite; }
+    .step-pending { background: #222; color: #666; }
+    @keyframes pulse { 0%, 100% { opacity: 1; } 50% { opacity: 0.6; } }
+    .queue-info { flex: 1; }
+    .queue-info .title { font-weight: 600; color: #fff; }
+    .queue-info .sub { font-size: 12px; color: #888; }
+
+    /* Empty state */
+    .empty { text-align: center; padding: 60px 20px; color: #555; }
+    .empty .icon { font-size: 48px; margin-bottom: 16px; }
+    .empty p { font-size: 16px; }
+
+    /* Modal */
+    .modal-overlay { display: none; position: fixed; top: 0; left: 0; right: 0; bottom: 0; background: rgba(0,0,0,0.7); z-index: 100; justify-content: center; align-items: center; }
+    .modal-overlay.show { display: flex; }
+    .modal { background: #1a1a2e; border: 1px solid #333; border-radius: 16px; padding: 32px; max-width: 700px; width: 90%; max-height: 80vh; overflow-y: auto; }
+    .modal h3 { color: #fff; margin-bottom: 20px; }
+    .modal .close { float: right; background: none; border: none; color: #888; font-size: 24px; cursor: pointer; }
+  </style>
+</head>
+<body>
+
+  <div class="header">
+    <h1>🎬 Faceless <span>Factory</span></h1>
+    <div class="stats">
+      <div class="stat-box"><div class="num" id="stat-total">365</div><div class="label">Topics</div></div>
+      <div class="stat-box"><div class="num" id="stat-scripted">0</div><div class="label">Scripted</div></div>
+      <div class="stat-box"><div class="num" id="stat-produced">0</div><div class="label">Produced</div></div>
+      <div class="stat-box"><div class="num" id="stat-published">0</div><div class="label">Published</div></div>
+    </div>
+  </div>
+
+  <div class="nav">
+    <button class="active" onclick="switchTab('topics')">📋 Topics</button>
+    <button onclick="switchTab('generate')">⚡ Generate</button>
+    <button onclick="switchTab('batches')">📦 Batches</button>
+    <button onclick="switchTab('queue')">🔄 Queue</button>
+    <button onclick="switchTab('settings')">⚙️ Settings</button>
+  </div>
+
+  <div class="main">
+
+    <!-- TOPICS TAB -->
+    <div class="tab-content active" id="tab-topics">
+      <div class="controls">
+        <input type="text" id="search" placeholder="Search topics..." oninput="filterTopics()">
+        <select id="filter-cat" onchange="filterTopics()">
+          <option value="">All Categories</option>
+          <option value="military">🎖️ Micro Militaries</option>
+          <option value="tech">⚙️ Forgotten Tech</option>
+          <option value="theatre">🎭 National Theatre</option>
+          <option value="niche">🌀 Micro Niches</option>
+        </select>
+        <select id="filter-status" onchange="filterTopics()">
+          <option value="">All Status</option>
+          <option value="idea">💡 Idea</option>
+          <option value="scripted">📝 Scripted</option>
+          <option value="images">🖼️ Images Ready</option>
+          <option value="produced">🎬 Produced</option>
+          <option value="published">🚀 Published</option>
+        </select>
+        <span class="selected-count" id="selected-count"></span>
+        <button class="btn btn-primary" onclick="generateSelected()" id="btn-generate-sel" style="display:none">⚡ Generate Selected</button>
+        <button class="btn btn-secondary" onclick="selectAll()">Select All Visible</button>
+      </div>
+      <div style="max-height: 65vh; overflow-y: auto; border-radius: 8px; border: 1px solid #222;">
+        <table>
+          <thead>
+            <tr>
+              <th class="check-col"><input type="checkbox" onchange="toggleAll(this)"></th>
+              <th>#</th>
+              <th>Topic</th>
+              <th>Category</th>
+              <th>Viral Score</th>
+              <th>Status</th>
+              <th>Actions</th>
+            </tr>
+          </thead>
+          <tbody id="topics-body"></tbody>
+        </table>
+      </div>
+    </div>
+
+    <!-- GENERATE TAB -->
+    <div class="tab-content" id="tab-generate">
+      <div class="generator">
+        <h3>⚡ Bulk Script Generator</h3>
+        <p style="color: #888; margin-bottom: 20px;">Select topics from the Topics tab, or manually enter a topic below to generate a script.</p>
+        <div class="gen-grid">
+          <div class="gen-field">
+            <label>Topic</label>
+            <input type="text" id="gen-topic" placeholder="e.g. Operation Mincemeat">
+          </div>
+          <div class="gen-field">
+            <label>Category</label>
+            <select id="gen-category">
+              <option value="military">🎖️ Micro Militaries</option>
+              <option value="tech">⚙️ Forgotten Tech</option>
+              <option value="theatre">🎭 National Theatre</option>
+              <option value="niche">🌀 Micro Niches</option>
+            </select>
+          </div>
+          <div class="gen-field" style="grid-column: span 2;">
+            <label>Research Notes (optional)</label>
+            <textarea id="gen-notes" placeholder="Paste research notes, key facts, dates, names..."></textarea>
+          </div>
+        </div>
+        <div style="margin-top: 16px; display: flex; gap: 12px;">
+          <button class="btn btn-primary" onclick="generateScript()">⚡ Generate Script</button>
+          <button class="btn btn-success" onclick="generateBulk()">📦 Generate Bulk (from selected topics)</button>
+          <select id="gen-voice" style="padding: 10px; background: #1a1a2e; border: 1px solid #333; border-radius: 8px; color: #fff;">
+            <option value="adam">🎙️ Voice: Adam</option>
+            <option value="mason">🎙️ Voice: Mason</option>
+            <option value="nova">🎙️ Voice: Nova</option>
+          </select>
+        </div>
+      </div>
+      <div class="script-output" id="script-output"></div>
+      <div id="bulk-progress" style="display:none; margin-top: 20px;"></div>
+    </div>
+
+    <!-- BATCHES TAB -->
+    <div class="tab-content" id="tab-batches">
+      <h3 style="color: #fff; margin-bottom: 20px;">📦 Production Batches</h3>
+      <div class="batch-cards" id="batch-cards"></div>
+    </div>
+
+    <!-- QUEUE TAB -->
+    <div class="tab-content" id="tab-queue">
+      <h3 style="color: #fff; margin-bottom: 20px;">🔄 Production Queue</h3>
+      <div id="queue-list">
+        <div class="empty">
+          <div class="icon">📭</div>
+          <p>No items in queue. Select topics and hit Generate to start.</p>
+        </div>
+      </div>
+    </div>
+
+    <!-- SETTINGS TAB -->
+    <div class="tab-content" id="tab-settings">
+      <div class="generator">
+        <h3>⚙️ Pipeline Settings</h3>
+        <div class="gen-grid">
+          <div class="gen-field">
+            <label>ElevenLabs API Key</label>
+            <input type="password" id="set-eleven" placeholder="sk-...">
+          </div>
+          <div class="gen-field">
+            <label>Default Voice</label>
+            <select id="set-voice">
+              <option value="adam">Adam (deep, authoritative)</option>
+              <option value="mason">Mason (warm, conversational)</option>
+              <option value="nova">Nova (warm, slightly British)</option>
+            </select>
+          </div>
+          <div class="gen-field">
+            <label>YouTube Channel ID</label>
+            <input type="text" id="set-yt" placeholder="UC...">
+          </div>
+          <div class="gen-field">
+            <label>TikTok Handle</label>
+            <input type="text" id="set-tt" placeholder="@yourchannel">
+          </div>
+          <div class="gen-field">
+            <label>Output Folder</label>
+            <input type="text" id="set-output" value="/Users/automus/.openclaw/workspace/FacelessChannel/output/">
+          </div>
+          <div class="gen-field">
+            <label>Posting Schedule</label>
+            <select id="set-schedule">
+              <option value="daily">Daily (1 video/day)</option>
+              <option value="twice">2x Daily</option>
+              <option value="3x">3x Weekly</option>
+            </select>
+          </div>
+        </div>
+        <div style="margin-top: 16px;">
+          <button class="btn btn-primary" onclick="saveSettings()">💾 Save Settings</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Script Preview Modal -->
+  <div class="modal-overlay" id="modal">
+    <div class="modal">
+      <button class="close" onclick="closeModal()">×</button>
+      <h3 id="modal-title"></h3>
+      <div id="modal-body" style="white-space: pre-wrap; font-size: 14px; line-height: 1.8;"></div>
+    </div>
+  </div>
+
+<script>
+// ============ DATA ============
+const TOP_TOPICS = [
+  // Top 10 (highest viral)
+  { id: 1, title: "Operation Mincemeat", desc: "Dead body fooled Hitler", cat: "military", viral: 98 },
+  { id: 2, title: "Ekranoplan", desc: "Soviet sea monster vehicle", cat: "tech", viral: 96 },
+  { id: 3, title: "Ghost Army", desc: "Inflatable tanks that won WWII", cat: "military", viral: 95 },
+  { id: 4, title: "Project Pluto", desc: "Nuclear weapon too dangerous to build", cat: "tech", viral: 94 },
+  { id: 5, title: "Bat Bombs", desc: "US military weaponized bats", cat: "military", viral: 93 },
+  { id: 6, title: "MKUltra", desc: "CIA mind control experiments", cat: "military", viral: 92 },
+  { id: 7, title: "Tsar Tank", desc: "Russia's epic engineering failure", cat: "tech", viral: 91 },
+  { id: 8, title: "Acoustic Kitty", desc: "$20M CIA spy cat hit by a taxi", cat: "military", viral: 95 },
+  { id: 9, title: "Operation Paperclip", desc: "US hired Nazi scientists", cat: "military", viral: 90 },
+  { id: 10, title: "Ghost Soldiers", desc: "Greatest POW rescue in history", cat: "military", viral: 89 },
+  // Military batch
+  { id: 11, title: "Night Witches", desc: "All-female Soviet bomber regiment", cat: "military", viral: 92 },
+  { id: 12, title: "Operation Bernhard", desc: "Nazis counterfeited British currency", cat: "military", viral: 85 },
+  { id: 13, title: "Devil's Brigade", desc: "US-Canadian special forces unit", cat: "military", viral: 82 },
+  { id: 14, title: "Navajo Code Talkers", desc: "Unbreakable native language code", cat: "military", viral: 88 },
+  { id: 15, title: "Operation Chariot", desc: "Greatest raid of all time", cat: "military", viral: 84 },
+  { id: 16, title: "Unit 731", desc: "Japan's secret bioweapon program", cat: "military", viral: 87 },
+  { id: 17, title: "Battle of Castle Itter", desc: "US & Germans fought together", cat: "military", viral: 91 },
+  { id: 18, title: "SOE Baker Street", desc: "Churchill's secret spy network", cat: "military", viral: 80 },
+  { id: 19, title: "Glider Assault on Eben-Emael", desc: "10 gliders captured a fortress", cat: "military", viral: 79 },
+  { id: 20, title: "Operation Anthropoid", desc: "Assassination of Reinhard Heydrich", cat: "military", viral: 86 },
+  // Tech batch
+  { id: 21, title: "Antikythera Mechanism", desc: "Ancient Greek computer", cat: "tech", viral: 90 },
+  { id: 22, title: "Tesla's Wardenclyffe Tower", desc: "Free wireless energy for all", cat: "tech", viral: 88 },
+  { id: 23, title: "Soviet Duga Radar", desc: "Giant mind-control antenna conspiracy", cat: "tech", viral: 85 },
+  { id: 24, title: "Concorde", desc: "Supersonic jet that was too expensive", cat: "tech", viral: 82 },
+  { id: 25, title: "Project Orion", desc: "Spaceship powered by nuclear bombs", cat: "tech", viral: 89 },
+  { id: 26, title: "Silphium", desc: "Ancient contraceptive plant Rome drove extinct", cat: "tech", viral: 84 },
+  { id: 27, title: "Greek Fire", desc: "Byzantine superweapon lost to history", cat: "tech", viral: 87 },
+  { id: 28, title: "Starlite", desc: "Material that could withstand nuclear blast", cat: "tech", viral: 86 },
+  { id: 29, title: "Baghdad Battery", desc: "2000-year-old electric cell", cat: "tech", viral: 83 },
+  { id: 30, title: "Nazi Bell (Die Glocke)", desc: "Germany's anti-gravity device", cat: "tech", viral: 88 },
+  // Theatre batch
+  { id: 31, title: "Kabuki Origins", desc: "Started by a shrine priestess", cat: "theatre", viral: 72 },
+  { id: 32, title: "Kathakali", desc: "Indian dance that takes 10 years to learn", cat: "theatre", viral: 70 },
+  { id: 33, title: "Wayang Shadow Puppets", desc: "Indonesian puppets that tell Hindu epics", cat: "theatre", viral: 74 },
+  { id: 34, title: "Beijing Opera", desc: "Male actors played all female roles", cat: "theatre", viral: 71 },
+  { id: 35, title: "Commedia dell'Arte", desc: "Improvised Italian theatre that created Harlequin", cat: "theatre", viral: 68 },
+  { id: 36, title: "Noh Theatre", desc: "700-year-old masked Japanese drama", cat: "theatre", viral: 69 },
+  { id: 37, title: "Butoh Dance", desc: "Post-nuclear Japanese body horror art", cat: "theatre", viral: 76 },
+  { id: 38, title: "Punch and Judy", desc: "400-year-old puppet show about domestic violence", cat: "theatre", viral: 73 },
+  { id: 39, title: "Grand Guignol", desc: "Parisian theatre of real-looking horror", cat: "theatre", viral: 78 },
+  { id: 40, title: "Aboriginal Corroboree", desc: "40,000-year-old ceremonial performance", cat: "theatre", viral: 71 },
+  // Micro niche batch
+  { id: 41, title: "Professional Mourners", desc: "Hired to cry at funerals", cat: "niche", viral: 80 },
+  { id: 42, title: "Snake Milkers", desc: "Extract venom for $1000/gram", cat: "niche", viral: 85 },
+  { id: 43, title: "Iceberg Cowboys", desc: "Tow icebergs for drinking water", cat: "niche", viral: 82 },
+  { id: 44, title: "Pet Food Tasters", desc: "Humans who taste dog food for a living", cat: "niche", viral: 88 },
+  { id: 45, title: "Golf Ball Divers", desc: "Recover $200M in lost balls yearly", cat: "niche", viral: 79 },
+  { id: 46, title: "Odor Judges", desc: "Professional armpit sniffers", cat: "niche", viral: 86 },
+  { id: 47, title: "Train Pushers (Oshiya)", desc: "Japanese workers who shove commuters onto trains", cat: "niche", viral: 83 },
+  { id: 48, title: "Hippopotamus Dentists", desc: "Clean hippo teeth at zoos", cat: "niche", viral: 81 },
+  { id: 49, title: "Earthquake Chasers", desc: "Scientists who run toward disasters", cat: "niche", viral: 77 },
+  { id: 50, title: "Face Feelers (Sensory Scientists)", desc: "Test razor blade sharpness with their face", cat: "niche", viral: 84 },
+];
+
+// State
+let topics = TOP_TOPICS.map(t => ({ ...t, status: 'idea', selected: false, script: null, batch: null }));
+let batches = [
+  { id: 1, name: "Batch 001 — WWII Secret Units", videos: "001-020", category: "military", total: 20, done: 20, status: "complete" },
+  { id: 2, name: "Batch 002 — More Military", videos: "021-040", category: "military", total: 20, done: 20, status: "complete" },
+  { id: 3, name: "Batch 003 — Forgotten Tech", videos: "041-060", category: "tech", total: 20, done: 20, status: "complete" },
+  { id: 4, name: "Batch 004 — National Theatre", videos: "061-080", category: "theatre", total: 20, done: 20, status: "complete" },
+  { id: 5, name: "Batch 005 — Micro Niches", videos: "081-100", category: "niche", total: 20, done: 2, status: "in-progress" },
+];
+let queue = [];
+
+// Load saved state
+try {
+  const saved = localStorage.getItem('faceless-factory');
+  if (saved) {
+    const data = JSON.parse(saved);
+    if (data.topics) topics = data.topics;
+    if (data.batches) batches = data.batches;
+    if (data.queue) queue = data.queue;
+  }
+} catch(e) {}
+
+function saveState() {
+  localStorage.setItem('faceless-factory', JSON.stringify({ topics, batches, queue }));
+  updateStats();
+}
+
+// ============ RENDER ============
+function renderTopics() {
+  const tbody = document.getElementById('topics-body');
+  const search = document.getElementById('search').value.toLowerCase();
+  const catFilter = document.getElementById('filter-cat').value;
+  const statusFilter = document.getElementById('filter-status').value;
+  
+  const filtered = topics.filter(t => {
+    if (search && !t.title.toLowerCase().includes(search) && !t.desc.toLowerCase().includes(search)) return false;
+    if (catFilter && t.cat !== catFilter) return false;
+    if (statusFilter && t.status !== statusFilter) return false;
+    return true;
+  });
+
+  tbody.innerHTML = filtered.map(t => `
+    <tr class="${t.selected ? 'selected' : ''}" onclick="toggleSelect(${t.id})">
+      <td class="check-col"><input type="checkbox" ${t.selected ? 'checked' : ''} onclick="event.stopPropagation(); toggleSelect(${t.id})"></td>
+      <td style="color: #555">${String(t.id).padStart(3, '0')}</td>
+      <td>
+        <div style="font-weight: 600; color: #fff;">${t.title}</div>
+        <div style="font-size: 12px; color: #888;">${t.desc}</div>
+      </td>
+      <td><span class="cat-${t.cat}">${catLabel(t.cat)}</span></td>
+      <td>
+        <div class="viral-bar"><div class="viral-fill" style="width: ${t.viral}%; background: ${viralColor(t.viral)}"></div></div>
+        <span style="font-size: 12px; color: ${viralColor(t.viral)}">${t.viral}</span>
+      </td>
+      <td><span class="badge badge-${t.status}">${statusLabel(t.status)}</span></td>
+      <td>
+        <button class="btn btn-secondary" style="padding: 4px 10px; font-size: 11px;" onclick="event.stopPropagation(); viewTopic(${t.id})">View</button>
+      </td>
+    </tr>
+  `).join('');
+
+  const selCount = topics.filter(t => t.selected).length;
+  document.getElementById('selected-count').textContent = selCount > 0 ? `${selCount} selected` : '';
+  document.getElementById('btn-generate-sel').style.display = selCount > 0 ? 'inline-block' : 'none';
+}
+
+function renderBatches() {
+  document.getElementById('batch-cards').innerHTML = batches.map(b => `
+    <div class="batch-card">
+      <h4>${b.name}</h4>
+      <div class="meta">Videos ${b.videos} · ${b.category}</div>
+      <div class="progress"><div class="progress-fill" style="width: ${(b.done/b.total)*100}%"></div></div>
+      <div class="meta">${b.done}/${b.total} scripts complete · ${b.status === 'complete' ? '✅ Done' : '🔄 In Progress'}</div>
+    </div>
+  `).join('');
+}
+
+function renderQueue() {
+  const el = document.getElementById('queue-list');
+  if (queue.length === 0) {
+    el.innerHTML = '<div class="empty"><div class="icon">📭</div><p>No items in queue. Select topics and hit Generate to start.</p></div>';
+    return;
+  }
+  el.innerHTML = queue.map((q, i) => `
+    <div class="queue-item">
+      <div class="step ${q.step === 'done' ? 'step-done' : q.step === 'active' ? 'step-active' : 'step-pending'}">${q.step === 'done' ? '✓' : i + 1}</div>
+      <div class="queue-info">
+        <div class="title">${q.title}</div>
+        <div class="sub">${q.stage} · ${q.step === 'done' ? 'Complete' : q.step === 'active' ? 'Processing...' : 'Waiting'}</div>
+      </div>
+      <span class="badge badge-${q.status}">${statusLabel(q.status)}</span>
+    </div>
+  `).join('');
+}
+
+function updateStats() {
+  document.getElementById('stat-total').textContent = topics.length;
+  document.getElementById('stat-scripted').textContent = topics.filter(t => ['scripted','images','produced','published'].includes(t.status)).length;
+  document.getElementById('stat-produced').textContent = topics.filter(t => ['produced','published'].includes(t.status)).length;
+  document.getElementById('stat-published').textContent = topics.filter(t => t.status === 'published').length;
+}
+
+// ============ HELPERS ============
+function catLabel(cat) {
+  return { military: '🎖️ Military', tech: '⚙️ Tech', theatre: '🎭 Theatre', niche: '🌀 Niche' }[cat] || cat;
+}
+function statusLabel(s) {
+  return { idea: '💡 Idea', scripted: '📝 Scripted', images: '🖼️ Images', produced: '🎬 Produced', published: '🚀 Published' }[s] || s;
+}
+function viralColor(v) {
+  if (v >= 90) return '#f72585';
+  if (v >= 80) return '#4cc9f0';
+  if (v >= 70) return '#06d6a0';
+  return '#888';
+}
+
+// ============ ACTIONS ============
+function switchTab(tab) {
+  document.querySelectorAll('.tab-content').forEach(el => el.classList.remove('active'));
+  document.querySelectorAll('.nav button').forEach(el => el.classList.remove('active'));
+  document.getElementById('tab-' + tab).classList.add('active');
+  event.target.classList.add('active');
+  if (tab === 'topics') renderTopics();
+  if (tab === 'batches') renderBatches();
+  if (tab === 'queue') renderQueue();
+}
+
+function filterTopics() { renderTopics(); }
+
+function toggleSelect(id) {
+  const t = topics.find(t => t.id === id);
+  if (t) t.selected = !t.selected;
+  renderTopics();
+  saveState();
+}
+
+function toggleAll(checkbox) {
+  const search = document.getElementById('search').value.toLowerCase();
+  const catFilter = document.getElementById('filter-cat').value;
+  const statusFilter = document.getElementById('filter-status').value;
+  topics.forEach(t => {
+    let show = true;
+    if (search && !t.title.toLowerCase().includes(search) && !t.desc.toLowerCase().includes(search)) show = false;
+    if (catFilter && t.cat !== catFilter) show = false;
+    if (statusFilter && t.status !== statusFilter) show = false;
+    if (show) t.selected = checkbox.checked;
+  });
+  renderTopics();
+  saveState();
+}
+
+function selectAll() {
+  const search = document.getElementById('search').value.toLowerCase();
+  const catFilter = document.getElementById('filter-cat').value;
+  const statusFilter = document.getElementById('filter-status').value;
+  topics.forEach(t => {
+    let show = true;
+    if (search && !t.title.toLowerCase().includes(search) && !t.desc.toLowerCase().includes(search)) show = false;
+    if (catFilter && t.cat !== catFilter) show = false;
+    if (statusFilter && t.status !== statusFilter) show = false;
+    if (show) t.selected = true;
+  });
+  renderTopics();
+  saveState();
+}
+
+function generateSelected() {
+  const selected = topics.filter(t => t.selected);
+  if (selected.length === 0) return alert('No topics selected');
+  switchTab('generate');
+  document.querySelectorAll('.nav button')[1].classList.add('active');
+  generateBulk();
+}
+
+function generateScript() {
+  const topic = document.getElementById('gen-topic').value;
+  if (!topic) return alert('Enter a topic');
+  const output = document.getElementById('script-output');
+  output.style.display = 'block';
+  output.innerHTML = '⚡ Generating script for "' + topic + '"...\n\nThis will call the Automus backend to generate a 10-fact script using the pipeline formula.\n\n[In production, this calls the OpenClaw API to generate the script, source images, and create TTS audio]';
+  
+  // Simulate script generation
+  setTimeout(() => {
+    output.innerHTML = `📝 SCRIPT: ${topic}\n${'═'.repeat(50)}\n\n[0-3s]  HOOK\n"You won't believe what happened with ${topic}..."\n\n[3-9s]  FACT 1\n[Research needed - cross-reference 2-3 sources]\n\n[9-15s]  FACT 2\n[The mission or purpose]\n\n[15-21s]  FACT 3\n[How it worked]\n\n[21-27s]  FACT 4\n[The risk or danger]\n\n[27-33s]  FACT 5\n[The scale - specific numbers]\n\n[33-39s]  FACT 6 ⚡ THE MONEY SHOT\n[Most shocking fact goes here]\n\n[39-45s]  FACT 7\n[Human element / personal story]\n\n[45-51s]  FACT 8\n[Results and impact]\n\n[51-57s]  FACT 9\n[What happened to it]\n\n[57-60s]  FACT 10 + CTA\n"Did you know about ${topic}? Drop a comment!"\n\n${'═'.repeat(50)}\n✅ Script template ready — needs research fill-in\n🎙️ Estimated read time: 58 seconds\n🖼️ Images needed: 10 (9:16 vertical)`;
+  }, 1500);
+}
+
+function generateBulk() {
+  const selected = topics.filter(t => t.selected);
+  if (selected.length === 0) return alert('Select topics from the Topics tab first');
+  
+  const progress = document.getElementById('bulk-progress');
+  progress.style.display = 'block';
+  
+  selected.forEach((t, i) => {
+    setTimeout(() => {
+      t.status = 'scripted';
+      t.selected = false;
+      queue.push({ title: t.title, stage: 'Script Generated', step: 'done', status: 'scripted' });
+      progress.innerHTML = `<div style="background: #111; border: 1px solid #222; border-radius: 8px; padding: 16px; margin-bottom: 8px;">
+        <div style="display: flex; justify-content: space-between; margin-bottom: 8px;">
+          <span style="color: #fff; font-weight: 600;">Bulk Generation Progress</span>
+          <span style="color: #4cc9f0;">${i + 1}/${selected.length}</span>
+        </div>
+        <div class="progress" style="width: 100%; height: 8px; background: #222; border-radius: 4px; overflow: hidden;">
+          <div style="width: ${((i+1)/selected.length)*100}%; height: 100%; background: linear-gradient(90deg, #4cc9f0, #06d6a0); border-radius: 4px; transition: width 0.3s;"></div>
+        </div>
+        <div style="color: #888; font-size: 12px; margin-top: 8px;">✅ ${t.title} — script generated</div>
+      </div>`;
+      saveState();
+      if (i === selected.length - 1) {
+        setTimeout(() => {
+          progress.innerHTML += `<div style="color: #06d6a0; font-weight: 600; margin-top: 12px;">🎉 All ${selected.length} scripts generated! Check the Queue tab.</div>`;
+          updateStats();
+        }, 500);
+      }
+    }, (i + 1) * 800);
+  });
+}
+
+function viewTopic(id) {
+  const t = topics.find(t => t.id === id);
+  if (!t) return;
+  document.getElementById('modal-title').textContent = `#${String(t.id).padStart(3,'0')} — ${t.title}`;
+  document.getElementById('modal-body').innerHTML = `
+<strong>Description:</strong> ${t.desc}
+<strong>Category:</strong> ${catLabel(t.cat)}
+<strong>Viral Score:</strong> ${t.viral}/100
+<strong>Status:</strong> ${statusLabel(t.status)}
+
+${t.script ? '━━━ SCRIPT ━━━\n' + t.script : '💡 No script generated yet. Select this topic and hit Generate.'}
+
+━━━ PRODUCTION CHECKLIST ━━━
+☐ Research (5 min)
+☐ Script generation
+☐ Image sourcing (10 images, 9:16)
+☐ TTS voiceover
+☐ CapCut assembly
+☐ Upload to YouTube + TikTok`;
+  document.getElementById('modal').classList.add('show');
+}
+
+function closeModal() {
+  document.getElementById('modal').classList.remove('show');
+}
+
+function saveSettings() {
+  const settings = {
+    elevenLabsKey: document.getElementById('set-eleven').value,
+    voice: document.getElementById('set-voice').value,
+    youtube: document.getElementById('set-yt').value,
+    tiktok: document.getElementById('set-tt').value,
+    output: document.getElementById('set-output').value,
+    schedule: document.getElementById('set-schedule').value,
+  };
+  localStorage.setItem('faceless-settings', JSON.stringify(settings));
+  alert('Settings saved! ✅');
+}
+
+// Load settings
+try {
+  const settings = JSON.parse(localStorage.getItem('faceless-settings'));
+  if (settings) {
+    if (settings.elevenLabsKey) document.getElementById('set-eleven').value = settings.elevenLabsKey;
+    if (settings.voice) document.getElementById('set-voice').value = settings.voice;
+    if (settings.youtube) document.getElementById('set-yt').value = settings.youtube;
+    if (settings.tiktok) document.getElementById('set-tt').value = settings.tiktok;
+    if (settings.output) document.getElementById('set-output').value = settings.output;
+    if (settings.schedule) document.getElementById('set-schedule').value = settings.schedule;
+  }
+} catch(e) {}
+
+// Init
+renderTopics();
+renderBatches();
+updateStats();
+</script>
+</body>
+</html>
