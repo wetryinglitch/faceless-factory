@@ -522,17 +522,34 @@ function generateSelected() {
   generateBulk();
 }
 
-function generateScript() {
+async function generateScript() {
   const topic = document.getElementById('gen-topic').value;
   if (!topic) return alert('Enter a topic');
+  const category = document.getElementById('gen-category').value;
+  const notes = document.getElementById('gen-notes').value;
   const output = document.getElementById('script-output');
   output.style.display = 'block';
-  output.innerHTML = '⚡ Generating script for "' + topic + '"...\n\nThis will call the Automus backend to generate a 10-fact script using the pipeline formula.\n\n[In production, this calls the OpenClaw API to generate the script, source images, and create TTS audio]';
+  output.innerHTML = '⚡ Researching "' + topic + '"...\n\n🔍 Searching for facts, dates, and names...\n📝 Writing script with dramatic arc...\n\nThis takes about 15-30 seconds...';
   
-  // Simulate script generation
-  setTimeout(() => {
-    output.innerHTML = `📝 SCRIPT: ${topic}\n${'═'.repeat(50)}\n\n[0-3s]  HOOK\n"You won't believe what happened with ${topic}..."\n\n[3-9s]  FACT 1\n[Research needed - cross-reference 2-3 sources]\n\n[9-15s]  FACT 2\n[The mission or purpose]\n\n[15-21s]  FACT 3\n[How it worked]\n\n[21-27s]  FACT 4\n[The risk or danger]\n\n[27-33s]  FACT 5\n[The scale - specific numbers]\n\n[33-39s]  FACT 6 ⚡ THE MONEY SHOT\n[Most shocking fact goes here]\n\n[39-45s]  FACT 7\n[Human element / personal story]\n\n[45-51s]  FACT 8\n[Results and impact]\n\n[51-57s]  FACT 9\n[What happened to it]\n\n[57-60s]  FACT 10 + CTA\n"Did you know about ${topic}? Drop a comment!"\n\n${'═'.repeat(50)}\n✅ Script template ready — needs research fill-in\n🎙️ Estimated read time: 58 seconds\n🖼️ Images needed: 10 (9:16 vertical)`;
-  }, 1500);
+  try {
+    const res = await fetch('http://localhost:8889/generate-script', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ topic, category, notes })
+    });
+    const data = await res.json();
+    if (data.success) {
+      output.innerHTML = `📝 SCRIPT: ${topic}\n${'═'.repeat(50)}\n\n${data.script}\n\n${'═'.repeat(50)}\n✅ Script saved to: ${data.saved}\n🎙️ Ready for TTS voiceover\n🖼️ Images needed: 10 (9:16 vertical)`;
+      // Update topic status
+      const t = topics.find(t => t.title.toLowerCase() === topic.toLowerCase());
+      if (t) { t.status = 'scripted'; t.script = data.script; saveState(); }
+    } else {
+      output.innerHTML = '❌ Error: ' + (data.error || 'Unknown error') + '\n\nMake sure the API server is running: node api/server.js';
+    }
+  } catch(err) {
+    // Fallback: generate locally with a rich template
+    output.innerHTML = `⚠️ API server not running. Start it with:\n\nnode /Users/automus/.openclaw/workspace/FacelessChannel/app/api/server.js\n\nOr ask Automus to generate the script directly in Telegram.\n\nTo generate via Automus, send in the 💸 chat:\n"@automus generate script for: ${topic}"`;
+  }
 }
 
 function generateBulk() {
