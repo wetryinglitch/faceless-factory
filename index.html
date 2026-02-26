@@ -529,7 +529,7 @@ async function generateScript() {
   const notes = document.getElementById('gen-notes').value;
   const output = document.getElementById('script-output');
   output.style.display = 'block';
-  output.innerHTML = '⚡ Researching "' + topic + '"...\n\n🔍 Searching for facts, dates, and names...\n📝 Writing script with dramatic arc...\n\nThis takes about 15-30 seconds...';
+  output.innerHTML = '⚡ Queuing "' + topic + '" for Automus sub-agent...\n\n🤖 Automus will research the topic, find facts, and write the script.\n⏳ Polling for results...';
   
   try {
     const res = await fetch('http://localhost:8889/generate-script', {
@@ -539,18 +539,64 @@ async function generateScript() {
     });
     const data = await res.json();
     if (data.success) {
-      output.innerHTML = `📝 SCRIPT: ${topic}\n${'═'.repeat(50)}\n\n${data.script}\n\n${'═'.repeat(50)}\n✅ Script saved to: ${data.saved}\n🎙️ Ready for TTS voiceover\n🖼️ Images needed: 10 (9:16 vertical)`;
-      // Update topic status
-      const t = topics.find(t => t.title.toLowerCase() === topic.toLowerCase());
-      if (t) { t.status = 'scripted'; t.script = data.script; saveState(); }
+      output.innerHTML = `✅ Queued: "${topic}"\n🤖 Automus sub-agent is researching and writing the script...\n⏳ Request ID: ${data.id}\n\nPolling for completion...`;
+      // Poll for result
+      pollForScript(data.id, topic);
     } else {
-      output.innerHTML = '❌ Error: ' + (data.error || 'Unknown error') + '\n\nMake sure the API server is running: node api/server.js';
+      output.innerHTML = '❌ Error: ' + (data.error || 'Unknown error');
     }
   } catch(err) {
-    // Fallback: generate locally with a rich template
-    output.innerHTML = `⚠️ API server not running. Start it with:\n\nnode /Users/automus/.openclaw/workspace/FacelessChannel/app/api/server.js\n\nOr ask Automus to generate the script directly in Telegram.\n\nTo generate via Automus, send in the 💸 chat:\n"@automus generate script for: ${topic}"`;
+    output.innerHTML = `⚠️ API server not running on localhost:8889.\n\nTo start: open Terminal and run:\nnode /Users/automus/.openclaw/workspace/FacelessChannel/app/api/server.js\n\nThen try again.`;
   }
 }
+
+async function pollForScript(id, topic) {
+  const output = document.getElementById('script-output');
+  let attempts = 0;
+  const maxAttempts = 60; // 5 min max
+  
+  const poll = setInterval(async () => {
+    attempts++;
+    try {
+      const res = await fetch(`http://localhost:8889/status/${id}`);
+      const data = await res.json();
+      
+      if (data.status === 'done') {
+        clearInterval(poll);
+        output.innerHTML = `📝 SCRIPT: ${topic}\n${'═'.repeat(50)}\n\n${data.script}\n\n${'═'.repeat(50)}\n✅ Complete!\n🎙️ Ready for TTS voiceover\n🖼️ Images needed: 10 (9:16 vertical)`;
+        const t = topics.find(t => t.title.toLowerCase() === topic.toLowerCase());
+        if (t) { t.status = 'scripted'; t.script = data.script; saveState(); updateStats(); }
+      } else if (data.status === 'processing') {
+        output.innerHTML = `🤖 Automus is writing "${topic}"...\n\n🔍 Researching facts and sources...\n📝 Crafting 10-fact script with dramatic arc...\n⏳ Attempt ${attempts}/${maxAttempts}`;
+      } else {
+        output.innerHTML = `⏳ Waiting for Automus sub-agent to pick up "${topic}"...\n🤖 Request is in queue (${data.status})\n\nAttempt ${attempts}/${maxAttempts}`;
+      }
+    } catch(e) {}
+    
+    if (attempts >= maxAttempts) {
+      clearInterval(poll);
+      output.innerHTML += `\n\n⚠️ Timed out. Ask Automus directly in Telegram.`;
+    }
+  }, 5000);
+}
+
+// Load completed scripts on init
+async function loadCompletedScripts() {
+  try {
+    const res = await fetch('http://localhost:8889/scripts');
+    const data = await res.json();
+    if (data.success && data.scripts) {
+      data.scripts.forEach(s => {
+        const t = topics.find(t => t.title.toLowerCase().replace(/[^a-z0-9]/g,'-') === s.name);
+        if (t && !t.script) { t.status = 'scripted'; t.script = s.content; }
+      });
+      saveState();
+      renderTopics();
+      updateStats();
+    }
+  } catch(e) {} // API not running, that's ok
+}
+loadCompletedScripts();
 
 function generateBulk() {
   const selected = topics.filter(t => t.selected);
